@@ -1,0 +1,66 @@
+{
+  "people": [
+    {
+      "id": "P0001",
+      "name": "John Smith",
+      "side": "Groom",
+      "notes": "Groom",
+      "invited": true,
+      "plus_one": false,
+      "email": "john.smith@example.com",
+      "phone": "555-0101"
+    },
+    {
+      "id": "P0002",
+      "name": "Jane Doe",
+      "side": "Bride",
+      "notes": "Bride",
+      "invited": true,
+      "plus_one": false,
+      "email": "jane.doe@example.com",
+      "phone": "555-0102"
+    },
+    {
+      "id": "P0003",
+      "name": "Robert Smith",
+      "side": "Groom",
+      "notes": "Father of the groom",
+      "invited": true,
+      "plus_one": true,
+      "email": "robert.smith@example.com",
+      "phone": "555-0103"
+    },
+    {
+      "id": "P0004",
+      "name": "Mary Smith",
+      "side": "Groom",
+      "notes": "Mother of the groom",
+      "invited": true,
+      "plus_one": false,
+      "email": "mary.smith@example.com",
+      "phone": "555-0104"
+    },
+    {
+      "id": "P0005",
+      "name": "Michael Johnson",
+      "side": "Friend",
+      "notes": "Best man",
+      "invited": true,
+      "plus_one": true,
+      "email": "mike.johnson@example.com",
+      "phone": "555-0105"
+    }
+  ],
+  "relationships": [
+    {
+      "parent": "P0003",
+      "child": "P0001"
+    },
+    {
+      "parent": "P0004",
+      "child": "P0001"
+    }
+  ],
+  "root": "P0003",
+  "id_counter": 6
+}
