@@ -8,7 +8,7 @@ from dataclasses import asdict
 from typing import Dict, List, Optional, Set, Tuple
 import streamlit as st
 
-from .models import Person, Relationship
+from .models import Person, Relationship, RelationshipType
 
 
 def init_state():
@@ -47,42 +47,62 @@ def add_person(name: str, side: str = "", notes: str = "", invited: bool = True,
     return pid
 
 
-def add_relationship(parent_id: str, child_id: str):
-    """Add a parent-child relationship between two people."""
-    if parent_id == child_id:
-        st.warning("Parent and child cannot be the same person.")
-        return
-    
-    # Prevent duplicates
-    for r in st.session_state.rels:
-        if r.parent == parent_id and r.child == child_id:
-            st.info("That relationship already exists.")
-            return
-    
-    st.session_state.rels.append(Relationship(parent=parent_id, child=child_id))
+def add_relationship(person1_id: str, person2_id: str, relationship_type: RelationshipType, notes: str = ""):
+    """Add a relationship between two people."""
+    if person1_id in st.session_state.people and person2_id in st.session_state.people:
+        # Avoid duplicates
+        for rel in st.session_state.rels:
+            if ((rel.person1_id == person1_id and rel.person2_id == person2_id) or 
+                (not rel.is_directed() and rel.person1_id == person2_id and rel.person2_id == person1_id)) and \
+               rel.relationship_type == relationship_type:
+                return
+        st.session_state.rels.append(Relationship(person1_id, person2_id, relationship_type, notes))
+
+
+def add_parent_child_relationship(parent_id: str, child_id: str):
+    """Add a parent-child relationship (backward compatibility)."""
+    add_relationship(parent_id, child_id, RelationshipType.PARENT_CHILD)
 
 
 def delete_person(pid: str):
     """Delete a person and all their relationships."""
     st.session_state.people.pop(pid, None)
-    st.session_state.rels = [r for r in st.session_state.rels if r.parent != pid and r.child != pid]
+    st.session_state.rels = [r for r in st.session_state.rels if r.person1_id != pid and r.person2_id != pid]
     if st.session_state.root == pid:
         st.session_state.root = None
 
 
 def edge_list() -> List[Tuple[str, str]]:
-    """Get all relationships as a list of (parent, child) tuples."""
-    return [(r.parent, r.child) for r in st.session_state.rels]
+    """Get all parent-child relationships as a list of (parent, child) tuples."""
+    return [r.get_parent_child_pair() for r in st.session_state.rels if r.is_directed() and r.get_parent_child_pair()]
 
 
 def children_of(pid: str) -> List[str]:
     """Get all children of a given person."""
-    return [r.child for r in st.session_state.rels if r.parent == pid]
+    return [r.person2_id for r in st.session_state.rels if r.person1_id == pid and r.is_directed()]
 
 
 def parents_of(pid: str) -> List[str]:
     """Get all parents of a given person."""
-    return [r.parent for r in st.session_state.rels if r.child == pid]
+    return [r.person1_id for r in st.session_state.rels if r.person2_id == pid and r.is_directed()]
+
+
+def get_relationships_for_person(pid: str) -> List[Relationship]:
+    """Get all relationships involving a person."""
+    return [r for r in st.session_state.rels if r.person1_id == pid or r.person2_id == pid]
+
+
+def get_related_people(pid: str, relationship_type: RelationshipType = None) -> List[str]:
+    """Get all people related to a person, optionally filtered by relationship type."""
+    related = []
+    for r in st.session_state.rels:
+        if relationship_type and r.relationship_type != relationship_type:
+            continue
+        if r.person1_id == pid:
+            related.append(r.person2_id)
+        elif r.person2_id == pid:
+            related.append(r.person1_id)
+    return related
 
 
 def compute_unique_guest_count() -> int:
@@ -94,9 +114,16 @@ def compute_unique_guest_count() -> int:
 
 def to_json() -> str:
     """Export current state to JSON string."""
+    # Convert relationships to dict with enum values as strings
+    relationships_data = []
+    for r in st.session_state.rels:
+        rel_dict = asdict(r)
+        rel_dict['relationship_type'] = r.relationship_type.value  # Convert enum to string
+        relationships_data.append(rel_dict)
+    
     data = {
         "people": [asdict(p) for p in st.session_state.people.values()],
-        "relationships": [asdict(r) for r in st.session_state.rels],
+        "relationships": relationships_data,
         "root": st.session_state.root,
         "id_counter": st.session_state.id_counter,
     }
@@ -106,8 +133,33 @@ def to_json() -> str:
 def from_json(text: str):
     """Import state from JSON string."""
     raw = json.loads(text)
+    
+    # Load people
     st.session_state.people = {p["id"]: Person(**p) for p in raw.get("people", [])}
-    st.session_state.rels = [Relationship(**r) for r in raw.get("relationships", [])]
+    
+    # Load relationships with proper enum conversion
+    st.session_state.rels = []
+    for r_data in raw.get("relationships", []):
+        # Handle both old and new relationship formats
+        if "parent" in r_data and "child" in r_data:
+            # Old format - convert to new format
+            rel = Relationship(
+                person1_id=r_data["parent"],
+                person2_id=r_data["child"],
+                relationship_type=RelationshipType.PARENT_CHILD,
+                notes=r_data.get("notes", "")
+            )
+        else:
+            # New format
+            rel_type = RelationshipType(r_data["relationship_type"]) if isinstance(r_data["relationship_type"], str) else r_data["relationship_type"]
+            rel = Relationship(
+                person1_id=r_data["person1_id"],
+                person2_id=r_data["person2_id"],
+                relationship_type=rel_type,
+                notes=r_data.get("notes", "")
+            )
+        st.session_state.rels.append(rel)
+    
     st.session_state.root = raw.get("root")
     st.session_state.id_counter = int(raw.get("id_counter", max([int(pid[1:]) for pid in st.session_state.people.keys()], default=0) + 1))
 

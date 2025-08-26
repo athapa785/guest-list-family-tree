@@ -77,9 +77,23 @@ def create_family_tree_graph() -> 'graphviz.Digraph':
         
         g.node(pid, label=label, style="filled", fillcolor=color, fontsize="9")
 
-    # Add edges
+    # Add edges for different relationship types
     for rel in st.session_state.rels:
-        g.edge(rel.parent, rel.child)
+        if rel.is_directed():  # Parent-child relationships
+            parent_id, child_id = rel.get_parent_child_pair()
+            g.edge(parent_id, child_id, color="black", style="solid")
+        else:  # Other relationships (spouse, partner, friend, etc.)
+            # Use different styling for different relationship types
+            if rel.relationship_type.value == "spouse":
+                g.edge(rel.person1_id, rel.person2_id, color="red", style="bold", dir="none", label="spouse")
+            elif rel.relationship_type.value == "partner":
+                g.edge(rel.person1_id, rel.person2_id, color="purple", style="dashed", dir="none", label="partner")
+            elif rel.relationship_type.value == "sibling":
+                g.edge(rel.person1_id, rel.person2_id, color="blue", style="dotted", dir="none", label="sibling")
+            elif rel.relationship_type.value == "friend":
+                g.edge(rel.person1_id, rel.person2_id, color="green", style="dashed", dir="none", label="friend")
+            elif rel.relationship_type.value == "acquaintance":
+                g.edge(rel.person1_id, rel.person2_id, color="gray", style="dotted", dir="none", label="acquaintance")
 
     # Rank by levels to keep generations aligned
     levels = compute_layout_levels(st.session_state.root)

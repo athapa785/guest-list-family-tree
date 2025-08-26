@@ -22,7 +22,7 @@ def main():
     init_state()
     
     # Page title
-    st.title("👪 Guest List & Family Tree (Quick UI)")
+    st.title("👪 Guest List & Family Tree")
     
     # Render sidebar
     render_sidebar()
